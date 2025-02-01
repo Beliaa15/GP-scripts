@@ -219,6 +219,70 @@ public class NodeManager : MonoBehaviour
         unknownNodes.Clear();
     }
 
+
+
+    private static void AssignValuesToMatrices()
+    {
+        foreach (NodeConnection connection in NodeConnection._registry)
+        {
+            int row = Node._registry.IndexOf(connection.node1);
+            int col = Node._registry.IndexOf(connection.node2);
+
+            if (connection.item != null)
+            {
+                Properties props = connection.item.itemObject.GetComponent<Properties>();
+                if (props != null)
+                {
+                    double conductance = 1.0 / props.resistance;
+                    yMatrix[row][col] -= conductance;
+                    yMatrix[col][row] -= conductance;
+                    yMatrix[row][row] += conductance;
+                    yMatrix[col][col] += conductance;
+
+                    if (props.voltage != 0)
+                    {
+                        iMatrix[row][0] -= props.voltage * conductance;
+                        iMatrix[col][0] += props.voltage * conductance;
+                    }
+                }
+            }
+        }
+    }
+
+    private static void AssignCurrents()
+    {
+        foreach (NodeConnection connection in NodeConnection._registry)
+        {
+            if (connection.item != null)
+            {
+                Properties props = connection.item.itemObject.GetComponent<Properties>();
+                if (props != null)
+                {
+                    int node1Index = Node._registry.IndexOf(connection.node1);
+                    int node2Index = Node._registry.IndexOf(connection.node2);
+                    double voltageDifference = resultMatrix[node1Index][0] - resultMatrix[node2Index][0];
+                    props.current = voltageDifference / props.resistance;
+                }
+            }
+        }
+    }
+
+    public static void UpdateGlowIntensity(GameObject ledObject, float current){
+        LED led = ledObject.GetComponent<LED>();
+        if (led != null)
+        {
+            float intensity = Mathf.Clamp01(current / led.maxSafeCurrent);
+            Color emissionColor = led.emissionColor * intensity;
+            Renderer renderer = ledObject.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                Material mat = renderer.material;
+                mat.SetColor("_EmissionColor", emissionColor);
+                DynamicGI.SetEmissive(renderer, emissionColor);
+            }
+        }
+    }
+
     // Helper methods
     public static bool IsGround(Node node) => node == groundNode;
     public static bool IsPositive(Node node) => node == positiveNode;
