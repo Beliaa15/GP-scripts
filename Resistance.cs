@@ -2,7 +2,7 @@ using UnityEngine;
 [RequireComponent(typeof(Properties))]
 public class Resistance : MonoBehaviour
 {
-    [SerializeField] private float resistanceValue = 100f; // Default resistance in ohms
+    [SerializeField] public float resistanceValue = 100f; // Default resistance in ohms
     
      private Properties properties;
 

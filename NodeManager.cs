@@ -18,7 +18,7 @@ public class NodeManager : MonoBehaviour
 
     // Component tracking
     public enum ComponentType { Resistor, LED, Battery, Wire }
-    private Dictionary<Transform, Node> holeToNodeMap = new Dictionary<Transform, Node>();
+    private static Dictionary<Transform, Node> holeToNodeMap = new Dictionary<Transform, Node>();
     private Dictionary<Transform, ComponentType> componentTypes = new Dictionary<Transform, ComponentType>();
 
     private void Awake()
@@ -54,13 +54,13 @@ public class NodeManager : MonoBehaviour
         switch (type)
         {
             case ComponentType.Resistor:
-                props.resistance = component.GetComponent<Resistor>().resistance;
+                props.resistance = component.GetComponent<Resistance>().resistanceValue;
                 break;
             case ComponentType.LED:
                 LED led = component.GetComponent<LED>();
                 props.voltageDrop = led.forwardVoltage;
-                props.minCurrent = led.minCurrent;
-                props.maxCurrent = led.maxCurrent;
+                props.minCurrent = led.minOperatingCurrent;
+                props.maxCurrent = led.maxSafeCurrent;
                 break;
             case ComponentType.Battery:
                 props.voltage = component.GetComponent<BatteryComponent>().voltage;
@@ -72,7 +72,7 @@ public class NodeManager : MonoBehaviour
     public void CreateConnection(Transform hole1, Transform hole2, GameObject wireObject)
     {
         Node node1 = GetOrCreateNode(hole1.gameObject);
-        Node node2 = GetOrCreateNode(hole2.gameObject());
+        Node node2 = GetOrCreateNode(hole2.gameObject);
 
         // Special node identification
         if (hole1.CompareTag("Ground")) groundNode = node1;
@@ -135,7 +135,7 @@ public class NodeManager : MonoBehaviour
     {
         if (positiveNode == null || groundNode == null)
         {
-            UIManager.SendWarningNotification("Circuit incomplete - missing power connections!");
+            Debug.LogWarning("Circuit incomplete - missing power connections!");
             return false;
         }
         new NodeConnection(positiveNode, groundNode);
@@ -164,7 +164,7 @@ public class NodeManager : MonoBehaviour
         {
             if (double.IsNaN(resultMatrix[unknownNodes.IndexOf(node)][0]))
             {
-                UIManager.SendWarningNotification("Unsolvable circuit configuration!");
+                Debug.LogWarning("Unsolvable circuit configuration!");
                 return false;
             }
             node.nodeObject.GetComponent<Properties>().voltage = resultMatrix[unknownNodes.IndexOf(node)][0];
@@ -177,10 +177,10 @@ public class NodeManager : MonoBehaviour
     {
         foreach (NodeConnection connection in NodeConnection._registry)
         {
-            if (connection.item?.type == "LED")
+            if (connection.item is LED)
             {
-                LED led = connection.item.itemObject.GetComponent<LED>();
-                double current = connection.item.itemObject.GetComponent<Properties>().current;
+                LED led = connection.item.GetComponent<LED>();
+                double current = connection.item.GetComponent<Properties>().current;
                 led.UpdateLED((float)current);
             }
         }
@@ -219,8 +219,6 @@ public class NodeManager : MonoBehaviour
         unknownNodes.Clear();
     }
 
-
-
     private static void AssignValuesToMatrices()
     {
         foreach (NodeConnection connection in NodeConnection._registry)
@@ -230,7 +228,7 @@ public class NodeManager : MonoBehaviour
 
             if (connection.item != null)
             {
-                Properties props = connection.item.itemObject.GetComponent<Properties>();
+                Properties props = connection.item.GetComponent<Properties>();
                 if (props != null)
                 {
                     double conductance = 1.0 / props.resistance;
@@ -255,7 +253,7 @@ public class NodeManager : MonoBehaviour
         {
             if (connection.item != null)
             {
-                Properties props = connection.item.itemObject.GetComponent<Properties>();
+                Properties props = connection.item.GetComponent<Properties>();
                 if (props != null)
                 {
                     int node1Index = Node._registry.IndexOf(connection.node1);
@@ -267,7 +265,8 @@ public class NodeManager : MonoBehaviour
         }
     }
 
-    public static void UpdateGlowIntensity(GameObject ledObject, float current){
+    public static void UpdateGlowIntensity(GameObject ledObject, float current)
+    {
         LED led = ledObject.GetComponent<LED>();
         if (led != null)
         {
